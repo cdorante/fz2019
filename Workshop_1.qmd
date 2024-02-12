@@ -1,0 +1,532 @@
+---
+title: "Workshop 1, Econometric Models"
+author: "Alberto Dorantes"
+date: "February 12, 2024"
+
+abstract: "This is an INDIVIDUAL workshop. In this workshop we learn about 1) calculation of returns and 2)  descriptive statistics for Finance. In addition, we learn the basics of R computing language, more specifically data management."
+
+format: 
+  html:
+    toc: true
+    toc-title: Content    
+    toc-location: left
+    toc-float: true
+    theme: united
+    highlight-style: zenburn
+    number-sections: true
+    fontsize: 0.9em
+    html-math-method: katex
+    
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+---
+
+## General Directions for each workshop
+
+You have to work on Google Colab for all your workshops. In Google Colab, you must login with your @tec.mx account and then create a google colab document for each workshop.
+
+In Google Colab you can work with Python or R notebooks. The default is Python notbooks, so you must go to "Runtime" or "Entorno de Ejecución", select Change runtime type" or "Cambiar entorno de ejecución", and then select R (instead of Python).
+
+Your Notebook will have a default name like "Untitled2.ipynb". Click on this name and change it to "W1-Econometrics-YourFirstName YourLastname".
+
+Pay attention in class to learn how to write text and R code into your Notebook.
+
+In your Workshop Notebook you have to:
+
+-   Replicate all the R Code along with its output.
+
+-   You have to do whatever is asked in the workshop. It can be: responses to specific **questions** and/or do an **exercise/challenge**.
+
+For ANY QUESTION or INTERPRETATION, you have to **RESPOND IN CAPITAL LETTERS** right after the question.
+
+-   It is STRONGLY RECOMMENDED that you write your OWN NOTES as if this were your personal notebook to study for the FINAL EXAM. Your own workshop/notebook will be very helpful for your further study.
+
+Once you finish your workshop, make sure that you RUN ALL CHUNKS. You can run each code chunk by clicking on the "Run" button located in the top-left section of each chunk. You can also run all the chunks in one-shot with Ctrl-F9. You have to submit to Canvas the web link of your Google Colab workshop.
+
+# Introduction to data management in Finance
+
+## Install the quantmod package
+
+Google Colab already has many R packages installed for you, but quantmod is not installed. In order to import and manage financial data in R, you need to install the quantmod package:
+
+```{r,eval=FALSE}
+install.packages("quantmod")
+```
+
+This package contains several functions for Financial analysis. The getSymbols() function pulls data from online sources such as Yahoo Finance.
+
+## Load the quantmod package
+
+Once installed, you must load the package in memory:
+
+```{r}
+library(quantmod)
+```
+
+## Downloading real financial prices
+
+The getSymbols function downloads prices/quotations of stocks, market indexes, currencies, crypto-currencies, ETF's and more.
+
+Let's download monthly prices for Nvidia and Microsoft from YahooFiance from January 2019 to date:
+
+```{r}
+tickers = c("NVDA", "MSFT")
+getSymbols(Symbols=tickers, from="2019-01-01", periodicity="monthly")
+```
+
+In the *Symbols* argument you can specify on or more than one ticker by using the container c() operator and separate each ticker by commas.
+
+In this case the getSymbols will bring 2 dataset, one for each ticker.
+
+## Show the content of datasets
+
+You can have a look of the content of each dataset. You can see the first of the last prices:
+
+```{r}
+head(NVDA)
+tail(NVDA)
+```
+
+You can visualize the whole monthly prices with a plot:
+
+```{r}
+plot(NVDA)
+```
+
+Or you can do a nicer plot:
+
+```{r}
+chartSeries(NVDA, theme=("black"))
+```
+
+## Data management: merging and cleaning datasets
+
+The datasets that getSymbols download are xts datasets. xts stands for eXtensible Time Series dataset.
+
+An xts dataset has an index, which in this case is the date of the prices. We can merge 2 or more xts datasets according to their indexes:
+
+```{r}
+
+prices<-merge(NVDA,MSFT)
+
+```
+
+prices will have now 12 columns since each dataset has 6 columns.Each stock has 5 columns for prices: Open, High, Low, Close and AdjClose, and 1 column for trading Volume in the period.
+
+To calculate financial returns of stocks we MUST use adjusted prices. Adjusted prices already consider stock splits and dividend payments.\
+To get ONLY adjusted columns we can use Ad function to prices dataset:
+
+```{r}
+adjprices<-Ad(prices)
+```
+
+We can rename the columns with the ticker names:
+
+```{r}
+colnames(adjprices) <- c("NVDA","MSFT")
+```
+
+We can see the first rows of the adjusted prices:
+
+```{r}
+head(adjprices)
+```
+
+# Return calculation
+
+## Simple and continuously compounded (cc) return
+
+A financial simple return for a stock in period t ($R_{t}$) is usually calculated as the closing stock price in t plus any dividend payment at t, and then divide this sum by the previous closing price. It is calculated as a percentage change from the previous period (t-1) to the present period (t):
+
+$$
+R_{t}=\frac{\left(price_{t}-price_{t-1}+ dividend_t\right)}{price_{t-1} }=\frac{price_{t}+dividend_t}{price_{t-1}}-1
+$$
+
+When a stock pays dividends of do a stock split, the financial exchange make an adjustment to the historical stock prices. This adjustment to the stock prices is made so that we do not need to use dividends nor splits to calculate simple stock returns. Then, it is always recommended to use adjusted prices to calculate stock returns, unless you have information about all dividends payed in the past.
+
+Then, with adjusted prices the formula for simple returns is easier:
+
+$$
+R_{t}=\frac{\left(Adjprice_{t}-Adjprice_{t-1}\right)}{Adjprice_{t-1} }=\frac{Adjprice_{t}}{price_{t-1}}-1
+$$
+
+For example, if the adjusted price of a stock at the end of January 2021 was \$100.00, and its previous (December 2020) adjusted price was \$80.00, then the monthly simple return of the stock in January 2021 will be:
+
+$$
+R_{Jan2021}=\frac{Adprice_{Jan2021}}{Adprice_{Dec2020}}-1=\frac{100}{80}-1=0.25
+$$
+
+We can use returns in decimal or in percentage (multiplying by 100). We will keep using decimals.
+
+Although the arithmetic mean of simple returns R gives us an idea of average past return, in the case of multi-period average return, this method of calculation can be misleading. Let's see why this is the case.
+
+Imagine you have only 2 periods and you want to calculate the average return of an investment per period:
+
+| Period | Investment value (at the end of the period) | Simple period Return (R) |
+|----------------|----------------------------|----------------------------|
+| 0      | \$100                                       | NA                       |
+| 1      | \$50                                        | -0.50                    |
+| 2      | \$75                                        | +0.50                    |
+
+: Returns over time
+
+Calculating the average simple return of this investment:
+
+$$
+\bar{R}=\frac{-0.5+0.5}{2}=0%
+$$
+
+Then, the simple average return gives me 0%, while I end up with \$75, losing 25% of my initial investment (\$100) over the first 2 periods. If I lost 25% of my initial investment over 2 periods, then the average mean return per period might a midpoint between 0 and 25%. The accurate mean return of an investment over time (multi-periods) is the “Geometric Mean” return.
+
+The total return of the investment in the whole period -also called the **holding-period return** (**HPR**)- can be calculated as:
+
+$$
+HPR=\left(1+R_{1}\right)\left(1+R_{2}\right)...\left(1+R_{N}\right)-1
+$$
+
+Using the example, the HPR for this investment is:
+
+$$ 
+HPR=\left(1-0.50\right)\left(1+0.50\right)-1=0.75 - 1 = -0.25 
+$$
+
+And the formula for the geometric average of returns will be:
+
+$$
+\bar{R_{g}}=\sqrt{\left(1+R_{1}\right)\left(1+R_{2}\right)...\left(1+R_{N}\right)}-1
+$$
+
+Caculating the geometric average for this investment:
+
+$$
+\bar{R_{g}}=\sqrt{\left(1-0.5\right)\left(1+0.5\right)}-1= -0.13397
+$$
+
+Then, the right average return per year is about -13.4% and the HPR for the 2 years is -25%.
+
+However, if we use **continuosuly compounded returns** (r) instead of **simple returns** (R), then the **arithmetic mean of r** is an accurate measure that can be converted to simple returns to get the geometric mean, which is the accurate mean return. Let's do the same example using continuously compounded returns:
+
+| Period | Investment value (at the end) | Continuously compounded return (r) |
+|--------|-------------------------------|------------------------------------|
+| 0      | \$100                         | NA                                 |
+| 1      | \$50                          | =log(50)-log(100)=-0.6931          |
+| 2      | \$75                          | =log(75)-log(50)=+0.4054           |
+
+: Continuously compounded returns
+
+In Finance it is very recommended to calculate continuously compounded returns (**cc returns**) and using cc returns instead of simple returns for data analysis, statistics and econometric models.
+
+One way to calculate cc returns is by subtracting the natural log of the current adjusted price (at t) minus the natural log of the previous adjusted price (at t-1):
+
+$$
+r_{t}=log(Adjprice_{t})-log(Adjprice_{t-1})
+$$
+
+This is also called as the difference of the log of the price.
+
+We can also calculate cc returns as the log of the current adjusted price (at t) divided by the previous adjusted price (at t-1):
+
+$$
+r_{t}=log\left(\frac{Adjprice_{t}}{Adjprice_{t-1}}\right)
+$$
+
+cc returns are usually represented by **small r**, while simple returns are represented by **capital R**.
+
+But why we use natural logarithm to calculate cc returns? First we need to remember what is a natural logarithm.
+
+## Reviewing the concept of natural logarithm
+
+Generate a new dataset with the natural logarithm (log) of the indexes:
+
+```{r}
+lnprices = log(adjprices)
+```
+
+Now do a time plot for the natural log price of the MXX:
+
+```{r}
+plot(adjprices, main = "Stock prices over time")
+addLegend("topleft",legend.names=tickers,lty=c(1,1),lwd=c(2,1),col=c("black","red"))
+
+plot(lnprices, main = "Log of the Stock prices over time")
+addLegend("topleft",legend.names=tickers,lty=c(1,1),lwd=c(2,1),col=c("black","red"))
+
+```
+
+*What is a natural logarithm?*
+
+The natural logarithm of a number is the **exponent** that the number e (=2.71...) needs to be raised to get another number. For example, let's name x=natural logarithm of a stock price p. Then:
+
+$$
+e^x = p
+$$
+The way to get the value of x that satisfies this equality is actually getting the natural log of p:  
+
+$$
+x = log_e(p)
+$$
+Then, we have to remember that **the natural logarithm is actually an exponent that you need to raise the number e** to get a specific number. 
+
+The natural log is the logarithm of base $e$ (=2.71...). The number $e$ is an irrational number (it cannot be expressed as a division of 2 natural numbers), and it is also called the *Euler constant*. Leonard Euler (1707-1783) took the idea of the logarithm from the great mathematician Jacob Bernoulli, and discovered very astonishing features of the $e$ number. Euler is considered the most productive mathematician of all times. Some historians believe that Jacob Bernoulli discovered the number $e$ around 1690 when he was playing with calculations to know how an amount of money grows over time with an interest rate.     
+
+How $e$ is related to the grow of financial amounts over time?
+
+Here is a simple example:
+
+If I invest $100.00 with an annual interest rate of 50%, then the end balance of my investment at the end of the first year (at the beginning of year 2) will be:
+
+$$
+I_2=100*(1+0.50)^1
+$$
+
+If the interest rate is 100%, then I would get:
+
+$$
+I_2=100*(1+1)^1=200
+$$
+Then, the general formula to get the final amount of my investment at the beginning of year 2, for any interest rate R can be:
+
+$$
+I_2=I_1*(1+R)^1
+$$
+The (1+R) is the growth factor of my investment.
+
+In Finance, the investment amount is called *principal*. If the interests are calculated (compounded) each month instead of each year, then I would end up with a higher amount at the end of the year.
+
+Monthly compounding means that a monthly interest rate is applied to the amount to get the interest of the month, and then the interest of the month is added to the investment (principal). Then, for month 2 the principal will be higher than the initial investment. At the end of month 2 the interest will be calculated using the updated principal amount. 
+Putting in simple math terms, the final balance of an investment at the beginning of year 2 when doing monthly compounding will be:
+
+$$
+I_2=I_1*\left(1+\frac{R}{N}\right)^{1*N}
+$$
+
+For monthly compounding, N=12, so the monthly interest rate is equal to the annual interest rate R divided by N (R/N). Then, with an annual rate of 100% and monthly compounding (N=12):
+
+$$
+I_2=100*\left(1+\frac{1}{12}\right)^{1*12}=100*(2.613..)
+$$
+
+In this case, the growth factor is $(1+1/12)^{12}$, which is equal to 2.613.
+
+Instead of compounding each month, if the compounding is every *moment*, then we are doing a **continuously compounded** rate. 
+
+If we do a continuously compounding for the previous example, then the *growth factor* for one year becomes the astonishing Euler constant e:
+
+Let's do an example for a compounding of each second (1 year has 31,536,000 seconds). The investment at the end of the year 1 (or at the beginning of year 2) will be:
+
+$$
+I_2=100*\left(1+\frac{1}{31536000}\right)^{1*31536000}=100*(2.718282..)\cong100*e^1
+$$
+
+Now we see that $e^1$ is the GROWTH FACTOR after 1 year if we do the compounding of the interests every moment!
+
+We can generalize to any other annual interest rate R, so that $e^R$ is the growth factor for an annual nominal rate R when the interests are compounded every moment.
+
+When compounding every instant, we use small r instead of R for the interest rate. Then, the growth factor will be:  $e^r$
+
+Then we can do a relationship between this growth rate and an effective equivalent rate:
+
+$$
+\left(1+EffectiveRate\right)=e^{r}
+$$
+
+If we apply the natural logarithm to both sides of the equation:
+
+$$
+ln\left(1+EffectiveRate\right)=ln\left(e^r\right)
+$$
+
+Since the *natural logarithm function is the inverse of the exponential function*, then:
+
+$$
+ln\left(1+EffectiveRate\right)=r
+$$
+In the previous example with a nominal rate of 100%, when doing a continuously compounding, then the effective rate will be:
+
+$$
+\left(1+EffectiveRate\right)=e^{r}=2.7182
+$$
+
+$$
+EffectiveRate=e^{r}-1 
+$$
+Doing the calculation of the effective rate for this example:
+
+$$
+EffectiveRate=e^{1}-1 = 2.7182.. - 1 = 1.7182 = 171.82\%
+$$
+
+Then, when compounding every moment, starting with a nominal rate of 100% annual interest rate, the actual effective annual rate would be 171.82%!
+
+
+## Return calculation
+
+We have historical monthly adjusted prices for each stock. Since we have a dataset with the adjusted prices for 2 stocks, we can easily calculate returns for both stocks:
+
+```{r}
+# We calculate the simple returns for both stocks 
+R = adjprices / lag(adjprices) - 1 
+# We calculate the cc returns:
+r = log(adjprices) - log(lag(adjprices))
+# also, we can use the diff function to do the same:
+r2 = diff(log(adjprices))
+
+```
+
+We calculated cc returns using two formulas and we got exactly the same result. The diff function gets the difference between each log price minus its own log price of the previous period (in this case, previous month).
+
+We created 3 datasets: R, r and r2. r and r2 are identical. These datasets have missing values (NA values) in the first month since we cannot calculate the returns for the first month. We can delete this row using the na.omit function:
+
+```{r}
+R = na.omit(R)
+r = na.omit(r)
+```
+
+Now visualize the monthly prices and returns of the S&P500 over time
+
+```{r}
+plot(adjprices)
+addLegend("topleft",legend.names=tickers,lty=c(1,1),lwd=c(2,1),col=c("black","red"))
+```
+
+```{r}
+plot(R)
+addLegend("topleft",legend.names=tickers,lty=c(1,1),lwd=c(2,1),col=c("black","red"))
+
+```
+
+# Descriptive statistics for Finance
+
+Descriptive statistics are mainly used to summarize information about any phenomenon. In Finance, we are interested in knowing the average past return on an investment or how much investment returns usually move up and down over time. We can use descriptive statistics to a) learn about past return and risk of investments, and 2) make inferences about average return and risk for estimating expected values for the future.
+
+The most important descriptive statistics are measures of central tendency and measures of dispersion. Another important measure is the calculation of return over several periods, usually called “Buy-and-Hold” return.
+
+### Mean, standard deviation and variance of cc returns
+
+Calculate the mean, standard deviation and variance of continuously compounded (cc) monthly returns:
+
+```{r}
+library(PerformanceAnalytics)
+table.Stats(r)
+```
+
+The table.Stats function belongs to the PerformanceAnalytics package.
+
+You can also get these descriptive statistics for a stock: 
+
+```{r}
+mean_r_nvda = mean(r$NVDA)
+sd_r_nvda = sd(r$NVDA)
+var_r_nvda <- var(r$NVDA, na.rm=TRUE) # variance
+# Note that the na.rm argument is set to TRUE. This means that NA values will be removed.
+# The variables are kept in the environment, so we have to print them to see them in console.
+cat("Mean return of NVIDIA =", mean_r_nvda, "\n")
+cat("Standard deviation of NVIDIA returns = ", sd_r_nvda, "\n")
+cat("Variance of NVIDIA returns = ", var_r_nvda, "\n")
+
+```
+
+### Q Mean, standard deviation and variance of simple returns
+
+Calculate the mean, standard deviation and variance of simple monthly returns for Starbucks:
+
+```{r}
+table.Stats(R)
+```
+
+```{r}
+print("Mean, standard deviation and variance of Nvidia simple returns:")
+mean(R$NVDA, na.rm=TRUE)
+sd(R$NVDA, na.rm=TRUE)
+var(R$NVDA, na.rm=TRUE)
+```
+
+**QUESTION: DO YOU SEE A DIFFERENCE BETWEEN THE SIMPLE AND CONTINUOUSLY COMPOUNDED RETURNS? BRIEFLY EXPLAIN.**
+
+# Q The Histrogram
+
+You have to remember what is a histogram. Read the Note Basics of Statistics for Finance.
+
+## Histogram using historical data
+
+Do a histogram of Nvidia cc returns:
+
+```{r}
+hist(r$NVDA, breaks=16,main="Histogram of NVIDIA monthly returns", 
+     xlab="Continuously Compounded returns", col="dark green")
+```
+
+**QUESTIONS:**
+
+**A) INTERPRET THIS HISTOGRAM WITH YOUR OWN WORDS**
+
+**B) HOW MEAN AND STANDARD DEVIATION IS RELATED WITH THE HISTOGRAM?**
+
+## Q Histogram using simulated data for returns
+
+With the real mean, and standard deviation of monthly cc returns of Starbucks, create (simulate) a random variable with that mean and standard deviation for the same time period. Use the rnorm function for this:
+
+```{r}
+rNVDA_sim <- rnorm(n=nrow(r), mean = mean_r_nvda, sd=sd_r_nvda)
+# We will use the same number of observations as returns.df
+# The nrow function gets the number of rows of an R object
+```
+
+Do a histogram of the simulated returns :
+
+```{r}
+# First, omit NA's. This will make your analysis more accurate 
+    # and coding easier since many functions throw errors while working with NA's
+rNVDA <- na.omit(r$NVDA)
+
+# Calculate the histograms and store their information in variables (don't plot yet)
+hist_sim_NVDA<- hist(rNVDA_sim,breaks=16,plot = FALSE)
+hist_NVDA <- hist(rNVDA,breaks=16,plot = FALSE)
+
+# Calculate the range of the graph
+xlim <- range(hist_NVDA$breaks,hist_sim_NVDA$breaks)
+ylim <- range(0,hist_NVDA$density,
+              hist_sim_NVDA$density)
+
+# Plot the first histogram
+plot(hist_sim_NVDA,xlim = xlim, ylim = ylim,
+     col = rgb(1,0,0,0.4),xlab = 'Lengths',
+     freq = FALSE, ## relative, not absolute frequency
+     main = 'Distribution of simulated and real Starbucks Returns')
+
+# Plot the second histogram on top of the 1st one
+opar <- par(new = FALSE)
+plot(hist_NVDA,xlim = xlim, ylim = ylim,
+     xaxt = 'n', yaxt = 'n', ## don't add axes
+     col = rgb(0,0,1,0.4), add = TRUE,
+     freq = FALSE) ## relative, not absolute frequency
+
+# Add a legend in the corner
+legend('topleft',c('Simulated Returns','Real Returns'),
+       fill = rgb(1:0,0,0:1,0.4), bty = 'n')
+par(opar)
+```
+
+As you can see, the peach color represents the normally simulated returns, while the light purple bars represent the real returns of Starbucks. The dark purple color appears when both real and simulated returns meet.
+
+**QUESTIONS:**
+
+**A) WHAT DIFFERENCE DO YOU SEE IN THE HISTOGRAMS? HOW REAL RETURNS ARE DIFFERENT FROM THE THEORETICAL NORMAL DISTRIBUTION OF RETURNS? BRIEFLY EXPLAIN.**
+
+**B) Assuming that the monthly returns of Starbucks follow a normal distribution, WHAT WOULD BE THE 95% CONFIDENCE INTERVAL? WHAT IS THE INTERPRETATION OF THIS INTERVAL? EXPLAIN.**
+
+# Quiz 1 and W1 submission
+
+Go to Canvas and respond Quiz 1 about Basics of Return and Basics of Descriptive Statistics. You will be able to try this quiz up to 3 times. Questions in this Quiz are related to concepts of the readings related to this Workshop. The grade of this Workshop will be the following:
+
+-   Complete (100%): If you submit an ORIGINAL and COMPLETE HTML file with all the activities, with your notes, and with your OWN RESPONSES to questions
+
+-   Incomplete (75%): If you submit an ORIGINAL HTML file with ALL the activities but you did NOT RESPOND to the questions and/or you did not do all activities and respond to some of the questions.
+
+-   Very Incomplete (10%-70%): If you complete from 10% to 75% of the workshop or you completed more but parts of your work is a copy-paste from other workshops.
+
+-   Not submitted (0%)
+
+Remember that you have to submit your .html file through Canvas BEFORE NEXT CLASS.
