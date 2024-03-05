@@ -1,0 +1,600 @@
+---
+title: "Workshop 2, Econometric Models"
+date: February 19, 2024
+author: "Alberto Dorantes"
+
+abstract: "This is an INDIVIDUAL workshop. In this workshop we learn about the Central Limit Theorem, the introduction to Hypothesis testing and Simple Linear Regression models." 
+
+format: 
+  html:
+    toc: true
+    toc-title: Content    
+    toc-location: left
+    toc-float: true
+    theme: united
+    highlight-style: zenburn
+    number-sections: true
+    fontsize: 0.9em
+    html-math-method: katex
+    
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+---
+
+```{r global_options}
+#| include: false 
+#| warning: false
+#| message: false
+#| fig-width: 12
+#| fig-height: 8
+
+#knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+#                      warning=FALSE, message=FALSE)
+```
+
+
+# The Central Limit Theorem
+
+The Central Limit Theorem is one of the most important discoveries in the history of mathematics and statistics. Actually, thanks to this discovery, the field of modern Statistics was developed at the beginning of the 20th century.  
+
+The central limit theorem says that for any random variable with ANY probability distribution, when you take groups (of at least 30 elements from the original distribution), take the mean of each group, then the probability distribution of these means will have the following characteristics:
+
+1) The distribution of the means will be close to normal distribution (when you take at least 30 groups). Actually, this happens not only with the mean of the variable, but also with any linear combination of the variable such as the sum or weighted average of the variable.
+
+2) The standard deviation of the means will be much less than the standard deviation of the individuals. Being more specifically, the standard deviation of the mean will shrink (reduce) with a factor of (1/squared-root of the size of the group (n) )
+
+*Then, the central limit theorem says that, no matter the original probability distribution of any random variable, if we take groups of this variable, a) the means of these groups will have a probability distribution close to the normal distribution, and b) the standard deviation of the mean will shrink according to the number of elements of each group.*
+
+Thanks to the CLT we can make inferences (good guesses) about:
+
+1) The mean of any random variable 
+2) The standard deviation of the means
+3) Since the means will behave as normal distribution, we can estimate how much the mean can vary over time! This variation is called the standard error (the standard deviation of the mean)
+
+Then, the CLT allows the development of important concepts such as Hypothesis testing and Linear Regression!  
+
+# Introduction to Hypothesis testing
+
+Hypothesis testing is one of the foundations of Statistics. It is recommended to read the Note "Introduction to Hypothesis testing".
+
+The purpose of hypothesis testing is to show statistical evidence (based on data) that your belief is very likely to be true. This *belief* can be whether the mean return of a stock is positive, or whether a stock return is very related to the market return. Depending on this *belief*, we can make the hypothesis testing more sophisticated. Then, there are different types of hypothesis testing depending on the belief I want to support.
+
+We start with the simple case of hypothesis testing: the One-Sample t-test. We will learn about this with an example.
+
+We download historical monthly data for the S&P500 market index and calculate cc returns:
+
+```{r}
+library(quantmod)
+
+tickers<-c("^GSPC")
+getSymbols(Symbols=tickers, from="2020-01-01", 
+           to="2023-12-31", src="yahoo", periodicity="monthly")
+# I get the adjusted prices:
+adjprices = Ad(GSPC)
+
+# I calculate continuously compounded returns (ccr)
+ccr = diff(log(adjprices))
+
+# I delete the first row since we have NA values for returns:
+ccr = na.omit(ccr)
+
+```
+
+
+Here is an example of a t-test to check whether the S&P 500 has an average monthly returns significantly greater than zero:
+
+```{r}
+# a)
+# H0: mean(ccr$GSPC) = 0
+# Ha: mean(ccr$GSPC) <> 0
+
+# b)
+se_GSPC.r <- sd(ccr$GSPC) / sqrt(nrow(ccr$GSPC) )
+print(paste("Standard error S&P 500 =" , se_GSPC.r))
+
+# c)
+t_GSPC.r <- (mean(ccr$GSPC) - 0) / se_GSPC.r
+print(paste("t-value S&P 500 = ", t_GSPC.r))
+
+
+```
+
+Since the t-value of the mean return of S&P 500 is lower than 2, I can't reject the null hypothesis. Therefore, S&P 500 mean return is not statistically greater than 0.
+
+Fortunately, there is an R function that does the same we did, but faster:
+
+```{r}
+ttest_GSPC.r <- t.test(as.numeric(ccr$GSPC), alternative = "greater")
+ttest_GSPC.r
+
+```
+
+I got the same result with this t.test function.
+
+But what does this mean? Does this mean that investing in the S&P is not going to give you positive returns over time? No, this is not quite a good conclusion. We need further analysis. We need to learn  more about Finance and Econometrics. We need to learn about Linear Regression Models!
+
+# The Linear regression model
+
+The simple linear regression model is used to understand the linear relationship between two variables assuming that one variable, the independent variable (IV), can be used as a predictor of the other variable, the dependent variable (DV). In this part we illustrate a simple regression model with the Market Model.
+
+The Market Model states that the expected return of a stock is given by its alpha coefficient (b0) plus its market beta coefficient (b1) multiplied times the market return. In mathematical terms:
+
+$$ E[R_i] = α + β(R_M) $$
+
+We can express the same equation using BO as alpha, and B1 as market beta:
+
+$$ E[R_i] = β_0 + β_1(R_M) $$
+
+We can estimate the alpha and market beta coefficient by running a simple linear regression model specifying that the market return is the independent variable and the stock return is the dependent variable. It is strongly recommended to use continuously compounded returns instead of simple returns to estimate the market regression model. The market regression model can be expressed as:
+
+$$ r_{(i,t)} = b_0 + b_1*r_{(M,t)} + ε_t $$
+
+Where:
+
+$ε_t$ is the error at time t. Thanks to the Central Limit Theorem, this error behaves like a Normal distributed random variable ∼ N(0, $σ_ε$); the error term $ε_t$ is expected to have mean=0 and a specific standard deviation $σ_ε$ (also called volatility).
+
+$r_{(i,t)}$ is the return of the stock i at time t.
+
+$r_{(M,t)}$ is the market return at time t
+
+$b_0$ and $b_1$ are called regression coefficients
+
+Now it's time to use real data to better understand this model. Download monthly prices for Alfa (ALFAA.MX) and the Mexican market index IPCyC (\^MXX) from Yahoo from January 2018 to Jan 2023.
+
+# CHALLENGE: Running a market regression model with real data
+
+## Data collection
+
+We first load the quantmod package and download monthly price data for Alfa and the Mexican market index. We also merge both datasets into one:
+
+```{r message=FALSE, warning=FALSE}
+# load package quantmod
+library(quantmod)
+
+# Download the data
+getSymbols(c("ALFAA.MX", "^MXX"), from="2018-01-01", to= "2023-01-31", periodicity="monthly", src="yahoo")
+
+#Merge both xts-zoo objects into one dataset, but selecting only adjusted prices:
+
+adjprices<-Ad(merge(ALFAA.MX,MXX))
+
+```
+
+## Return calculation
+
+We calculate continuously returns for both, Alfa and the IPCyC:
+
+```{r}
+returns <- diff(log(adjprices)) 
+#I dropped the na's:
+returns <- na.omit(returns)
+
+#I renamed the columns:
+colnames(returns) <- c("ALFAA", "MXX")
+
+```
+
+## Visualize the relationship
+
+Do a scatter plot putting the IPCyC returns as the independent variable (X) and the stock return as the dependent variable (Y). We also add a line that better represents the relationship between the stock returns and the market returns.Type:
+
+```{r}
+plot.default(x=returns$MXX,y=returns$ALFAA)
+abline(lm(returns$ALFAA ~ returns$MXX),col='blue')
+# As you see, I indicated that the Market returns goes in the X axis and 
+#   Alfa returns in the Y axis. 
+# In the market model, the independent variable is the market returns, while
+#   the dependent variable is the stock return
+
+```
+
+Sometimes graphs can be deceiving. In this case, the range of X axis and Y axis are different, so it is better to do a graph where we can make both X and Y ranges with equal distance. We also add a line that better represents the relationship between the stock returns and the market returns. Type:
+
+```{r}
+plot.default(x=returns$MXX,y=returns$ALFAA, xlim=c(-0.70,0.60) )
+abline(lm(returns$ALFAA ~ returns$MXX),col='blue')
+```
+
+**WHAT DOES THE PLOT TELL YOU? BRIEFLY EXPLAIN**
+
+**EACH POINT REPRESENTS ONE MONTH OF 2 RETURNS: RETURN OF THE MARKET AND RETURN OF THE STOCK. YOU HAVE TO REMEMBER HOW THE COORDINATE SYSTEM OF 2 DIMENSIONS WORKS.**
+
+**R: WE CAN SEE THAT THE WORSE RETURN OF THE MEXICAN MARKET BETWEEN JAN 2020 AND DEC 2023 WAS CLOSE TO -20%, WHILE THE HIGHEST WAS ABOUT +16%, WHILE THE WORSE ALFA RETURN WAS ABOUT -19% WHILE THE BEST WAS ABOUT +40%.**
+**WE SEE A POSITIVE LINEAR RELATIONSHIP BETWEEN THE MARKET RETURN AND THE ALFA RETURN. FOR EACH CHANGE OF 0.10 (10 PERCENT POINTS), ALFA RETURN MOVE A LITTLE BIT MORE. WHEN THE MARKET RETURN LOSSES, ALMOST ALL THE TIME ALFA LOSSES. THEN, THE BETA1 OF THE MARKET REGRESSION MODEL MIGHT BE SLIGHTLY HIGHER THAN 1.**
+
+
+## RUNNING THE MARKET REGRESSION MODEL
+
+We can run the linear regression model with the lm() function. We run a simple regression model to see how the monthly returns of the stock are related with the market return. The first parameter of the function is the DEPENDENT VARIABLE (in this case, the stock return), and the second parameter must be the INDEPENDENT VARIABLE, also named the EXPLANATORY VARIABLE (in this case, the market return).
+
+What you will get is called The Market Regression Model. You are trying to examine how the market returns can explain stock returns.
+
+Assign your market model to an object named "reg":
+
+```{r}
+reg <- lm(ALFAA ~ MXX, data=returns)
+# Or by calling the return objects by itself:
+reg <- lm(returns$ALFAA ~ returns$MXX)
+
+# I save the summary of the regression result and display it:
+sumreg = summary(reg)
+sumreg
+```
+
+Do a rough estimate of the 95% confidence interval for B0:
+
+```{r}
+minB0 <- sumreg$coefficients[1,1]  - (2* sumreg$coefficients[1,2] )
+maxBO <-  sumreg$coefficients[1,1]  + (2* sumreg$coefficients[1,2] )
+
+cat("The approx. B0 95% confidence interval goes from", minB0, "to", maxBO)
+
+```
+
+Do a rough estimate of the 95% confidence interval for B1:
+
+```{r}
+minB1 <- sumreg$coefficients[2,1]  - (2* sumreg$coefficients[2,2] )
+maxB1 <-  sumreg$coefficients[2,1]  + (2* sumreg$coefficients[2,2] )
+
+cat("The B1 confidence interval goes from", minB1, "to", maxB1)
+```
+
+**PAY ATTENTION IN CLASS FOR THE INTERPRETATION OF THE BETA COEFFICIENTS, STANDARD ERRORS, T-VALUE, AND P-VALUE.**
+
+**INTERPRETATION OF THE REGRESSION OUTPUT**
+
+**IN A SIMPLE REGRESSION MODEL, BETA0 (THE INTERCEPT WHERE THE LINE CROSSES THE Y AXIS), AND BETA1 (THE INCLINATION OR SLOPE OF THE LINE) IS ESTIMATED. THE REGRESSION MODEL FINDS THE BEST LINE THAT BETTER REPRESENTS ALL THE POINTS. THE BETA0 AND BETA1 COEFFICIENTS TOGETHER DEFINE THE REGRESSINO LINE.**
+
+**THE REGRESSION EQUATION.**
+
+ACCORDING TO THE REGRESSION OUTPUT, THE REGRESSION EQUATION THAT EXPLAINS THE RETURN OF ALFA BASED ON THE IPC'S RETURN IS: 
+
+E[Alfareturn]=`r sumreg$coefficients[1,1]` +`r sumreg$coefficients[2,1]`(MXXreturn). 
+
+
+**THE REGRESSION MODEL AUTOMATICALLY PERFORMS ONE HYPOTHESIS TEST FOR EACH COEFFICIENT ESTIMATED. IN THIS CASE WE HAVE 2 BETA COEFFICIENTS, SO 2 HYPOTHESIS TESTS ARE ALREADY DONE. YOU CAN SEE THAT IN THE COEFFICIENTS TABLE IN THE OUTPUT.**
+
+**WE START LOOKING AT THE TABLE OF COEFFICIENTS. WHERE IT SAYS (Intercept), YOU CAN SEE THE RESULT OF THE HYPOTHESIS TESTING FOR BETA0. WHERE IT SAYS THE NAME OF THE INDEPENDENDENT VARIABLE, IN THIS CASE, THE MARKET RETURN (MXX), YOU CAN SEE THE RESULT FOR THE BETA1 OF THE STOCK.**
+
+**THE HYPOTHESIS TEST FOR BETA0 IS THE FOLLOWING:**
+
+H0: BETA0=0; THIS MEANS THAT THE INTERCEPT OF THE LINE (THE POINT WHERE THE LINE CROSSES THE Y AXIS) IS NOT SIGNIFICANTLY DIFFERENT THAN ZERO. IN THE CONTEXT OF THE MARKET MODEL THIS MEANS THAT THE ALFA STOCK DOES NOT OFFER SIGNIFICANTLY HIGHER RETURNS THAN THE MARKET.
+
+HA: BETA0 <>0; THIS MEANS THAT THE INTERCEPT IS SIGNIFICANTLY DIFFERENT THAN ZERO; IN OTHER WORDS, ALFA RETURN IS GREATER THAN ZERO.  
+
+**ABOUT STANDARD ERROR, TVALUE AND PVALUES OF THE HYPOTHESIS TESTS:**
+
+**THE ESTIMATION FOR BETA0 IS `r sumreg$coefficients[1,1] `. THIS IS THE MEAN FOR BETA0. SINCE REALITY ALWAYS CHANGE, BETA0 MIGHT CHANGE IN THE FUTURE. HOW MUCH IT CAN CHANGE? THAT IS GIVEN BY ITS STANDARD DEVIATION, WHICH IS CALLED STANDARD ERROR. AND THANKS TO THE CENTRAL LIMIT THEOREM, BETA0 WILL BEHAVE LIKE A NORMAL DISTRIBUTED VARIABLE.**
+
+**IN THIS CASE, THE STANDARD ERROR OF BETA0 IS `r sumreg$coefficients[1,2] `. THIS MEANS THAT IN THE FUTURE BETA0 WILL HAVE A MEAN OF `r sumreg$coefficients[1,1] `, AND ABOUT 68% OF THE TIME WILL VARY ONE STANDARD DEVIATION LESS THAN ITS MEAN AND 1 STANDARD DEVIATION ABOVE ITS MEAN. IN ADDITION, WE CAN SAY THAT BETA0 WILL MOVE BETWEEN -2 STANDARD DEVIATIONS AND + 2 STANDARD DEVIATIONS FROM `r sumreg$coefficients[1,1] `.**
+
+FOLLOWING THE HYPOTHESIS TEST METHOD, WE CALCULATE THE CORRESPONDING t-value OF THIS HYPOTHESIS AS FOLLOWS:
+
+$$
+t=\frac{(B_{0}-0)}{SD(B_{0})}
+$$
+THEN, t = (`r sumreg$coefficients[1,1]` - 0 ) / `r sumreg$coefficients[1,2]` = `r sumreg$coefficients[1,1]/ sumreg$coefficients[1,2]`. THIS VALUE IS AUTOMATICALLY CALCULATED IN THE REGRESSION OUTPUT IN THE COEFFICIENTS TABLE IN THE ROW (intercept)!
+
+REMEMBER THAT t-value IS THE DISTANCE BETWEEN THE HYPOTHETICAL VALUE OF THE VARIABLE OF ANALYSIS (IN THIS CASE, $B_0$=`r sumreg$coefficients[1,1]`) AND ITS HYPOTHETICAL VALUE, WHICH IS ZERO. BUT THIS DISTANCE IS MEASURED IN STANDARD DEVIATIONS OF THE VARIABLE OF ANALYSIS. REMEMBER THAT THE STANDARD ERROR OF THE VARIABLE OF ANALYSIS IS CALLED STANDARD ERROR (IN THIS CASE, THE STD.ERROR OF $B_0$ = `r sumreg$coefficients[1,2]`). 
+
+
+SINCE THE ABSOLUTE VALUE OF THE t-value OF $B_0$ IS LESS THAN 2, THEN WE CANNOT REJECT THE NULL HYPOTHESIS. IN OTHER WORDS, WE CAN SAY THAT $B_0$ IS NOT SIGNIFICANTLY LESS THAN ZERO (AT THE 95% CONFIDENCE LEVEL). 
+
+FOR BETA1 THE HYPOTHESIS TEST IS THE SAME:
+
+H0: $B_1$ = 0 (THERE IS NO RELATIONSHIP BETWEEN THE MARKET AND THE STOCK RETURN)
+
+Ha: $B_1$ > 0 (THERE IS A POSITIVE RELATIONSHIP BETWEEN THE THE MARKET AND THE STOCK RETURN)
+
+IN THIS HYPOTHESIS, THE VARIABLE OF ANALYSIS IS BETA1 ($B_1$). 
+
+FOLLOWING THE HYPOTHESIS TEST METHOD, WE CALCULATE THE CORRESPONDING t-value OF THIS HYPOTHESIS AS FOLLOWS:
+
+$$
+t=\frac{(B_{1}-0)}{SD(B_{1})}
+$$
+
+**THEN, t = (`r sumreg$coefficients[2,1]` - 0 ) / `r sumreg$coefficients[2,2]` = `r sumreg$coefficients[2,1]/ sumreg$coefficients[2,2]`. THIS VALUE IS AUTOMATICALLY CALCULATED IN THE REGRESSION OUTPUT IN THE COEFFICIENTS TABLE IN THE SECOND ROW OF THE COEFFICIENT TABLE.**
+
+**REMEMBER THAT t-value IS THE DISTANCE BETWEEN THE HYPOTHETICAL VALUE OF THE VARIABLE OF ANALYSIS (IN THIS CASE, $B_1$=`r sumreg$coefficients[2,1]`) AND ITS HYPOTHETICAL VALUE, WHICH IS ZERO. BUT THIS DISTANCE IS MEASURED IN STANDARD DEVIATIONS OF THE VARIABLE OF ANALYSIS. REMEMBER THAT THE STANDARD ERROR OF THE VARIABLE OF ANALYSIS IS CALLED STANDARD ERROR (IN THIS CASE, THE STD.ERROR OF $B_1$ = `r sumreg$coefficients[2,2]`).** 
+
+
+**THE ESTIMATION FOR BETA1 IS `r sumreg$coefficients[2,1] `. THIS IS THE MEAN FOR BETA1. SINCE REALITY ALWAYS CHANGE, BETA1 MIGHT CHANGE IN THE FUTURE. HOW MUCH IT CAN CHANGE? THAT IS GIVEN BY ITS STANDARD DEVIATION, WHICH IS CALLED STANDARD ERROR OF BETA1. THANKS TO THE CENTRAL LIMIT THEREFORE WE CAN MAKE SURE THAT BETA1 WILL MOVE LIKE A NORMAL DISTRIBUTED VARIABLE IN THE FUTURE WITH THE MEAN AND STANDARD DEVIATIONS (STANDARD ERROR) CALCULATED IN THE REGRESSION OUTPUT.**
+
+**WE CAN SAY THAT BETA1 WILL MOVE BETWEEN -2 STANDARD DEVIATIONS AND + 2 STANDARD DEVIATIONS FROM `r sumreg$coefficients[2,1] `.** 
+
+**SINCE THE ABSOLUTE VALUE OF THE t-value OF $B_1$ IS MUCH GREATER THAN 2, THEN WE HAVE ENOUGH STATISTICAL EVIDENCE AT THE 95% CONFIDENCE TO SAY THAT WE REJECT THE NULL HYPOTHESIS. IN OTHER WORDS, WE CAN SAY THAT $B_1$ IS SIGNIFICANTLY GREATER THAN ZERO. WE CAN ALSO SAY THAT WE HAVE ENOUGH STATISTICAL EVIDENCE TO SAY THAT THERE IS A POSITIVE RELATIONSHIP BETWEEN THE STOCK AND THE MARKET RETURN.**  
+
+
+#### MORE ABOUT THE INTERPRETATION OF THE BETA COEFFICIENTS AND THEIR t-values AND p-values
+
+THEN, IN THIS OUTPUT WE SEE THAT $B_0$ =  `r sumreg$coefficients[1,1]`, AND $B_1$ = `r sumreg$coefficients[2,1]`. WE CAN ALSO SEE THE STANDARD ERROR, t-value AND p-value OF BOTH $B_0$ AND $B_1$.
+
+$B_0$ ON AVERAGE IS NEGATIVE, BUT IT IS NOT SIGNIFICANTLY NEGATIVE (AT THE 95% CONFIDENCE) SINCE ITS p-value>0.05 AND ITS ABSOLUTE VALUE OF t-value<2. THEN I CAN SAY THAT IT SEEMS THAT ALFA RETURN ON AVERAGE UNDERPERFORMS THE MARKET RETURN BY `r 100* sumreg$coefficients[1,1]`% (SINCE $B_0$ = `r sumreg$coefficients[1,1]`). IN OTHER WORDS, THE EXPECTED RETURN OF ALFA IF THE MARKET RETURN IS ZERO IS NEGATIVE. HOWEVER, THIS IS NOT SIGNIFICANTLY LESS THAN ZERO SINCE ITS p-value>0.05! THEN, I DO NOT HAVE STATISTICAL EVIDENCE AT THE 95% CONFIDENCE LEVEL TO SAY THAT ALFA UNDERPERFORMS THE MARKET. 
+
+$B_1$ IS +`r sumreg$coefficients[2,1]` (ON AVERAGE). SINCE ITS p-value<0.05 I CAN SAY THA $B_1$ IS SIGNFICANTLY GREATER THAN ZERO (AT THE 95% CONFIDENCE INTERVAL). IN OTHER WORDS, I HAVE STRONG STATISTICAL EVIDENCE TO SAY THAT ALFA RETURN IS POSITIVELY RELATED TO THE MARKET RETURN SINCE ITS $B_1$ IS SIGNIFICANTLY GREATER THAN ZERO. 
+
+INTERPRETING THE MAGNITUDE OF $B_1$, WE CAN SAY THAT IF THE MARKET RETURN INCREASES BY +1%, I SHOULD EXPECT THAT, ON AVERAGE,THE RETURN OF ALFA WILL INCREASE BY  `r sumreg$coefficients[2,1]`%. THE SAME HAPPENS IF THE MARKET RETURN LOSSES 1%, THEN IT IS EXPECTED THAT ALFA RETURN, ON AVERAGE, LOSSES ABOUT  `r sumreg$coefficients[2,1]`%. THEN, ON AVERAGE IT  SEEMS THAT ALFA IS RISKIER THAN THE MARKET (ON AVERAGE). BUT WE NEED TO CHECK WHETHER IT IS SIGNIFICANTLY RISKIER THAN THE MARKET.
+
+AN IMPORTANT ANALYSIS OF $B_1$ IS TO CHECK WHETHER $B_1$ IS SIGNIFICANTLY MORE RISKY OR LESS RISKY THAN THE MARKET. IN OTHER WORDS, IT IS IMPORTANT TO CHECK WHETHER $B_1$ IS LESS THAN 1 OR GREATER THAN 1. TO DO THIS CAN DO ANOTHER HYPOTHESIS TEST TO CHECK WHETHER $B_1$ IS SIGNIFICANTLY GREATER THAN 1! 
+
+WE CAN DO THE FOLLOWING HYPOTHESIS TEST TO CHECK WHETHER ALFA IS RISKIER THAN THE MARKET:
+
+H0: $B_1$ = 1 (ALFA IS EQUALLY RISKY THAN THE MARKET) 
+
+Ha: $B_1$ > 1 (ALFA IS RISKIER THAN THE MARKET)
+
+IN THIS HYPOTHESIS, THE VARIABLE OF ANALYSIS IS BETA1 ($B_1$). 
+
+FOLLOWING THE HYPOTHESIS TEST METHOD, WE CALCULATE THE CORRESPONDING t-value OF THIS HYPOTHESIS AS FOLLOWS:
+
+$$
+t=\frac{(B_{1}-1)}{SD(B_{1})}
+$$
+
+THEN, t = (`r sumreg$coefficients[2,1]` - 1 ) / `r sumreg$coefficients[2,2]` = `r (sumreg$coefficients[2,1]-1)/ sumreg$coefficients[2,2]`. THIS VALUE IS NOT AUTOMATICALLY CALCULATED IN THE REGRESSION OUTPUT. 
+
+SINCE t-value > 2, THEN WE CAN SAY THAT WE HAVE SIGNIFICANT EVIDENCE TO REJECT THE NULL HYPOTHESIS. IN OTHER WORDS, WE CAN SAY THAT ALFA IS SIGNIFICANTLY RISKIER THAN THE MARKET (AT THE 95% CONFIDENCE LEVEL)
+
+### 95% CONFIDENCE INTERVAL OF THE BETA COEFFICIENTS 
+
+WE CAN USE THE 95% CONFIDENCE INTERVAL OF BETA COEFFICIENTS AS AN ALTERNATIVE TO MAKE CONCLUSIONS ABOUT $B_0$ AND $B_1$ (INSTEAD OF USING t-values AND p-values).
+
+
+We can do a rough estimate of the 95% confidence interval for $B_1$:
+
+```{r}
+minB1 <- sumreg$coefficients[2,1]  - (2* sumreg$coefficients[2,2] )
+maxB1 <-  sumreg$coefficients[2,1]  + (2* sumreg$coefficients[2,2] )
+
+cat("The $B_1$ confidence interval goes from", minB1, "to", maxB1)
+```
+
+The exact 95% confidence interval can be calculated by applying the confint function to the regression object:
+
+```{r}
+cibetas=confint(reg)
+cibetas
+```
+THE FIRST ROW SHOWS THE 95% CONFIDENCE INTERVAL FOR $B_0$, AND THE SECOND ROW SHOWS THE CONFIDENCE INTERVAL OF $B_1$. WE CAN SEE THAT THESE VALUES ARE VERY SIMILAR TO THE "ROUGH" ESTIMATE USING t-critical-value = 2. THE EXACT CRITICAL t-value DEPENDS ON THE # OF OBSERVATIONS OF THE SAMPLE. THEN, IT IS MUCH EASIER TO USE THE *confint* FUNCTION.  
+
+**HOW WE INTERPRET THE 95% CONFIDENCE INTERVAL FOR $B_0$?**
+
+IN THE NEAR FUTURE, $B_0$ CAN HAVE A VALUE BETWEEN `r cibetas[1,1]` AND `r cibetas[1,2]` 95% OF THE TIME. IN OTHER WORDS $B_0$ CAN MOVE FROM A NEGATIVE VALUE TO ZERO TO A POSITIVE VALUE. THEN, WE CANNOT SAY THAT 95% OF THE TIME, $B_0$ WILL BE NEGATIVE. IN OTHER WORDS, WE CONCLUDE THAT $B_0$ IS NOT SIGNIFICANTLY NEGATIVE AT THE 95% CONFIDENCE LEVEL. 
+
+HOW OFTEN $B_0$ WILL BE NEGATIVE? LOOKING AT THE 95% CONFIDENCE INTERVAL, $B_0$ WILL BE NEGATIVE AROUND MORE THAN 50% OF THE TIME. BEING MORE SPECIFIC, WE CALCULATE THIS BY SUBTRACTING THE p-value FROM 1: (1-pvalue). IN THIS CASE, THE P-VALUE= `r sumreg$coefficients[1,4]`. THEN `r 100*(1-sumreg$coefficients[1,4])`% OF THE TIME $B_0$ WILL BE NEGATIVE!
+
+**HOW WE INTERPRET THE 95% CONFIDENCE INTERVAL FOR $B_1$?**
+
+IN THE NEAR FUTURE, $B_1$ CAN MOVE BETWEEN `r cibetas[1,1]` AND `r cibetas[1,2]` 95% OF THE TIME. IN OTHER WORDS, $B_1$ CAN HAVE A VALUE GREATER THAN 1 AT LEAST 95% OF THE TIME. THEN, WE CAN SAY THAT $B_1$ IS SIGNIFICANTLY POSITIVE AND GREATER THAN 1. IN OTHER WORDS, ALFA IS SIGNIFICANTLY RISKIER THAN THE MARKET SINCE ITS $B_1$>1 AT LEAST 95% OF THE TIME.   
+
+
+# CHALLENGE 1
+
+Select 1 stock you want to further analyze. run a t-test to check whether the average monthly returns over time is significantly different than zero. You have to do the calculations MANUALLY and then use the t-test function in R. You have to INTERPRET your results. 
+
+HINT: Follow the example we did for the GSPC returns.
+
+You have to:
+
+(a) **WRITE THE NULL AND THE ALTERNATIVE HYPOTHESIS**
+
+(b) Calculate the Standard error, which is the standard deviation of the MEAN of returns.
+
+(c) Calculate the t-statistic. **EXPLAIN/INTERPRET** THE VALUE OF t YOU GOT.
+
+(d) **WRITE YOUR CONCLUSION OF THE t-TEST**
+
+
+**SOLUTION CHALLENGE 1**
+
+**I SELECTED PFIZER:**
+
+**I DOWNLOAD PFIZER PRICES FROM 2020 AND CALCULATE RETURNS:**
+
+```{r}
+tickers<-c("PFE")
+getSymbols(Symbols=tickers, from="2020-01-01", 
+           to="2023-12-31", src="yahoo", periodicity="monthly")
+# I keep only the adjusted price column:
+pfeprices = Ad(PFE)
+# I calculate continuously compounded returns of PFE:
+ccr = diff(log(pfeprices))
+# I delete the first row that has NA values:
+ccr = na.omit(ccr)
+# I rename the column:
+names(ccr)=c("PFE")
+```
+
+
+**a. I START DEFINING THE HYPOTHESES AND CALCULATING THE T-VALUE:**
+
+H0: mean(ccr$PFE) = 0
+Ha: mean(ccr$PFE) > 0
+
+**b. I CALCULATE THE STANDARD ERROR, WHICH IS THE STANDARD DEVIATION OF THE MEAN RETURN OF PFE:**
+
+```{r}
+se_PFE.r <- sd(ccr$PFE) / sqrt(nrow(ccr$PFE) )
+# I DISPLAY THE RESULT: 
+cat("Standard error ASTRAZENECA =" , se_PFE.r)
+```
+
+**c. CALCULATE THE t-value:**
+
+THE t-value IS THE DISTANCE BETWEEN THE ACTUAL (REAL) HISTORICAL MEAN AND THE HYPOTHETICAL MEAN, WHICH IS ZERO, BUT THIS DISTANCE IS MEASURED IN \# OF STANDARD ERRORS, SO I NEED TO DIVIDE DE DISTANCE BY THE STANDARD ERROR:
+
+```{r}
+# I CALCULATE THE MEAN WITH THE mean FUNCTION:
+mean_ret_PFE = mean(ccr$PFE)
+# I DISPLAY THE MEAN:
+cat("Mean historical return of PFE:", mean_ret_PFE,"\n")
+# I CALCULATE THE t-VALUE:
+t_PFE.r <- (mean_ret_PFE - 0) / se_PFE.r
+# I DISPLAY THE RESULT:
+cat("t-value ASTRAZENECA = ", t_PFE.r)
+
+```
+
+**INTERPRETATION OF THE t-value:**
+
+**THE ACTUAL HISTORICAL MEAN RETURN OF PFE IS `r t_PFE.r` STANDARD DEVIATIONS AWAY FROM THE HYPOTHETICAL MEAN, WHICH IS ZERO. IN OTHER WORDS, THE DISTANCE BETWEEN THE ACTUAL MEAN RETURN OF `r mean_ret_PFE` and 0.00 IS `r t_PFE.r` STANDARD DEVIATIONS.**
+
+**Since the absolute value of t-value of the mean return of ASTRAZENECA is LESS than 2, I cannot reject the null hypothesis. Therefore, ASTRAZENECA mean return IS NOT significantly greater than 0 at the 95% confidence interval.**
+
+2.  Run the t-test using the t.test function.
+
+```{r}
+ttest_PFE.r <- t.test(as.numeric(ccr$PFE), alternative = "greater")
+ttest_PFE.r
+print(ttest_PFE.r$statistic)
+
+```
+
+DID YOU GET THE SAME RESULT? BRIEFLY EXPLAIN
+
+**I GOT THE SAME T-VALUE WITH THE t.test FUNCTION AND THE MANUAL METHOD.**
+
+**CONCLUSION OF THIS TEST: SINCE THE p-value IS GREATER THAN 0.05, I DO NOT HAVE ENOUGH STATISTICAL EVIDENCE AT THE 95% CONFIDENCE LEVEL TO REJECT THE NULL HYPOTHESIS. IN OTHER WORDS, I DO NOT HAVE ENOUGH STATISTICAL EVIDENCE TO SAY THAT THE AVERAGE MONTHLY RETURNS OF PFIZER FROM JAN 2019 TO DEC 2022 IS SIGNIFICANTLY GREATER THAN ZERO.**
+
+**THE P-VALUE IS THE PROBABILITY OF MAKING A MISTAKE IF I REJECT THE NULL HYPOTHESIS. IN OTHER WORDS, FOR THIS TEST, THERE IS A `r 100*ttest_PFE.r$p.value`% PROBABILITY THAT I WILL BE WRONG IF I ACCEPT MY CONCLUSION THAT PFIZER MONTHLY RETURNS ARE GREATER THAN ZERO.**
+
+**THE PROBABILITY THAT I WILL BE RIGHT IF I REJECT THE NULL HYPOTHESIS CAN BE CALCULATED WITH (1-pvalue). IN THIS CASE, THE PROBABILITY THAT I CAN BE RIGHT IF I REJECT THE NULL IS `r 1-ttest_PFE.r$p.value`.  AS YOU SEE, IN THIS CASE, EVEN WHEN IT IS STILL MORE PROBABLE THAT I WILL BE RIGHT, I CANNOT REJECT THE NULL HYPOTHESIS AT THE 95% CONFIDENCE LEVEL.**
+
+
+# CHALLENGE 2: RUN A MARKET REGRESSION MODEL FOR A US STOCK
+
+You have to run a Market Regression model for any US firm using monthly data from Jan 2018 to Dec 2022 and run a MARKET REGRESSION MODEL. In this case, you MUST USE the right Market index, which is the \^GSPC (the S&P500). You have to show the result of the model.
+
+With the result of your model, respond to the following:
+
+(a) INTERPRET THE RESULTS OF THE COEFFICIENTS (b0 and b1), THEIR STANDARD ERRORS, P-VALUES AND 95% CONFIDENCE INTERVALS. Before doing this, re-read the Note: Basics of Linear Regression Models to better interpret your results.
+
+(b) DO A QUICK RESEARCH ABOUT THE EFFICIENT MARKET HYPOTHESIS. BRIEFLY DESCRIBE WHAT THIS HYPOTHESIS SAYS.
+
+(c) ACCORDING TO THE EFFICIENT MARKET HYPOTHESIS, WHAT IS THE EXPECTED VALUE OF b0 in the Market REGRESSION MODEL?
+
+(d) ACCORDING TO YOUR RESULTS, IS THE FIRM SIGNIFICANTLY RISKIER THAN THE MARKET? WHAT IS THE t-test YOU NEED TO DO TO RESPOND THIS QUESTION? Do the test and provide your interpretation. (Hint: Here you have to change the null hypothesis for b1: H0: b1=1; Ha=b1\<\>1)
+
+# SOLUTION CHALLENGE 2.
+
+I selected PFIZER. 
+
+I COLLECT THE DATA AND MERGE ADJUSTED PRICES:
+
+```{r}
+getSymbols(c("AZN", "^GSPC"), from="2020-01-01", 
+           to="2023-12-31", periodicity="monthly", src="yahoo")
+
+#I select only the adjusted prices of each stock and merge them together:
+prices <- merge(Ad(AZN),Ad(GSPC))
+
+```
+
+I CALCULATE CONTINUOUSLY COMPOUNDED RETURNS:
+
+```{r}
+returns = diff(log(prices))
+```
+
+I RENAME THE COLUMNS OF THE returns DATASET:
+
+```{r}
+colnames(returns) = c("AZN","GSPC")
+```
+
+
+I RUN THE MARKET REGRESSION MODEL FOR ASTRAZENECA:
+
+```{r}
+reg1 = lm(returns$AZN ~ returns$GSPC)
+sumreg1=summary(reg1)
+sumreg1
+```
+
+**THE REGRESSION EQUATION OF THIS MARKET REGRESSION MODEL IS:**
+
+AZN_returns = $B_0$ + $B_1$(GSPC_returns) + $\varepsilon$
+
+WHERE $\varepsilon$ IS THE REGRESSION ERROR 
+
+**THE REGRESSION EQUATION OF THE EXPECTED VALUE OF AZN RETURNS IS:**
+
+E[AZN_returns] = $B_0$ + $B_1$(GSPC_returns)
+
+(THE EXPECTED VALUE OF THE ERROR IS ALWAYS ZERO)
+
+THEN, 
+
+E[AZN_returns] = `r sumreg1$coefficients[1,1]` + `r sumreg1$coefficients[2,1]` (GSPC_returns)
+
+**a. INTERPRET THE RESULTS OF THE COEFFICIENTS ($B_0$ and $B_1$), THEIR STANDARD ERRORS, P-VALUES AND 95% CONFIDENCE INTERVALS.**
+
+REGARDING $B_0$:
+
+$B_0$= `r sumreg1$coefficients[1,1]` AND ITS STANDARD DEVIATION (ALSO CALLED STANDARD ERROR) IS . `r sumreg1$coefficients[1,2]`. $B_0$ CAN CHANGE OVER TIME, AND IT WILL BEHAVE SIMILAR TO A NORMAL DISTRIBUTED VARIABLE. 
+
+THEN, THE AVERAGE VALUE OF $B_0$ WILL BE `r sumreg1$coefficients[1,1]`, AND IT WILL HAVE A VARIABILITY ACCORDING TO ITS STANDARD DEVIATION.    
+
+ALTHOUGH $B_0$>0, WE CANNOT SAY THAT $B_0$ IS SIGNIFICANTLY GREATER THAN ZERO SINCE ITS t-value<2 AND ITS p-value>0.05. THEN WE CANNOT REJECT THE HYPOTHESIS THAT $B_0$=0; WE ACCEPT THAT ASTRAZENECA IS NOT SIGNIFICANTLY OFFERING RETURNS OVER THE MARKET.
+
+WE CAN CALCULATE THE 95% CONFIDENCE INTERVAL OF THE BETA COEFFICIENTS:
+
+```{r}
+cibetas1 = confint(reg1)
+cibetas1
+
+```
+WE CONFIRM THAT $B_0$ IS NOT POSSITIVE 95% OF THE TIME. IT CAN BE NEGATIVE, ZERO OR POSITIVE. 
+
+REGARDING $B_1$:
+
+$B_1$= `r sumreg1$coefficients[2,1]` AND ITS STANDARD DEVIATION (ALSO CALLED STANDARD ERROR) IS . `r sumreg1$coefficients[2,2]`. $B_1$ CAN CHANGE OVER TIME, AND IT WILL BEHAVE SIMILAR TO A NORMAL DISTRIBUTED VARIABLE. 
+
+$B_1$ > 0, AND IT IS SIGNIFICANTLY GREATER THAN ZERO SINCE ITS p-value<0.05 AND ITS ABSOLUTE VALUE OF t IS >2. THEN I CAN SAY THAT ASTRAZENECA RETURN IS POSITIVELY AND SIGNIFICANTLY RELATED TO MARKET RETURN SINCE ITS $B_1$>0 95% OF THE TIME. 
+
+WE SEE THAT $B_1$<1. THEN, ON AVERAGE ASTRAZENECA IS LESS RISKY THAN THE MARKET. HOWEVER, WE HAVE TO CHECK WHETHER IT IS SIGNIFICANTLY LESS RISKY THAN THE MARKET. WE CAN CHECK THIS BY CALCULATING A NEW t-value FOR THE FOLLOWING HYPOTHESIS:
+
+H0: $B_1$=1 (ASTRAZENECA IS EQUALLY RISKY THAN THE MARKET)
+
+HA: $B_1$<1 (ASTRAZENECA IS LESS RISKY THAN THE MARKET)
+
+OR WE CAN CHECK THE 95% CONFIDENCE INTERVAL OF $B_1$. WE SEE THAT $B_1$ 95% CONFIDENCE INTERVAL IS:
+
+```{r}
+cibetas1
+```
+WE SEE THAT $B_1$ CAN MOVE FROM `r cibetas1[2,1]` TO  `r cibetas1[2,2]` 95% OF THE TIME. THEN, $B_1$ IS SIGNIFICANTLY LESS THAN ONE. IN OTHER WORDS, ASTRAZENECA IS SIGNIFICANTLY LESS RISKY THAN THE MARKET. 
+
+IF THE MARKET INCREASES IN 1.00%, IT IS EXPECTED THAT ASTRAZENECA RETURN WILL ALSO INCREASE BUT IN `r  sumreg1$coefficients[2,1]`%. IF THE MARKET LOSSES 1.00%, IT IS EXPECTED THAT ASTRAZENECA RETURN WILL LOSE ABOUT `r  sumreg1$coefficients[2,1]`%. 
+
+(b) DO A QUICK RESEARCH ABOUT THE EFFICIENT MARKET HYPOTHESIS. BRIEFLY DESCRIBE WHAT THIS HYPOTHESIS SAYS.
+
+THIS HYPOTHESIS STATES THAT STOCK PRICES REFLECT ALL AVAILABLE INFORMATION THAT IS RELEASED TO INVESTORS. THEN, STOCK PRICES ARE ALWAYS TRADED AT THEIR FAIR VALUE ON EXCHANGES, SO THERE IS NO POSSIBILITY THAT INVESTORS CAN PURCHASE UNDERVALUED STOCKS OR SELL STOCKS FOR INFLATED PRICES. THEREFORE, IT SHOULD BE IMPOSSIBLE TO OUTPERFORM THE OVERALL MARKET AND THE ONLY WAY AN INVESTOR CAN OBTAIN HIGHER RETURNS IS BY PURCHASING RISKIER INVESTMENTS. 
+
+
+(c) ACCORDING TO THE EFFICIENT MARKET HYPOTHESIS, WHAT IS THE EXPECTED VALUE OF $B_0$ in the Market REGRESSION MODEL?
+
+SINCE THERE IS NO POSSIBLE WAY THAT A STOCK OVERPERFORM THE MARKET SYSTEMATICALLY, THEN THE EXPECTED VALUE OF $B_0$ SHOULD BE ZERO. THEN, WHEN THE MARKET RETURN IS ZERO, IT IS EXPECTED THAT A STOCK ALSO OFFERS ZERO RETURNS.  
+
+(d) ACCORDING TO YOUR RESULTS, IS AZTRAZENECA SIGNIFICANTLY RISKIER THAN THE MARKET? WHAT IS THE t-test YOU NEED TO DO TO RESPOND THIS QUESTION? Do the test and provide your interpretation. (Hint: Here you have to change the null hypothesis for $B_1$: H0: $B_1$=1; Ha=$B_1$<>1)
+
+SINCE $B_1$<1, THEN WE CAN CHECK WHETHER ASTRAZENECA IS LESS RISKY THAN THE MARKET. WE CAN RESPOND THIS QUESTION BY LOOKING AT THE 95% CONFIDENCE INTERVAL OF $B_1$ OR CALCULATING t-value OF THE FOLLOWING HYPOTHESIS:
+
+H0: $B_1$=1 (AZN IS EQUALLY RISKY THAN THE MARKET)
+
+Ha: $B_1$<1 (AZN IS LESS RISKY THAN THE MARKET)
+
+ABOVE WE RESPONDED THIS QUESTION USING THE 95% CONFIDENCE INTERVAL. WE CONCLUDED THAT ASTRAZENECA IS SIGNIFICANTLY LESS RISKY THAN THE MARKET SINCE $B_1$<1 95% OF THE TIME. LET'S CALCULATE THE t-value OF THIS TEST AND SEE WHETHER WE ARRIVE TO THE SAME CONCLUSION:
+
+t-value = (`r sumreg1$coefficients[2,1]` - 1) / `r sumreg1$coefficients[2,2]` 
+
+t-value = `r (sumreg1$coefficients[2,1] - 1) / sumreg1$coefficients[2,2]`
+
+SINCE THE ABSOLUTE VALUE OF T IS > 2, THEN WE HAVE ENOUGH STATISTICAL EVIDENCE AT THE 95% CONFIDENCE LEVEL TO REJECT THE NULL HYPOTHESIS. IN OTHER WORDS, WE CAN CONCLUDE THAT ASTRAZENECA IS SIGNIFICANTLY LESS RKSY THAN THE MARKET. THEN, WE ARRIVED TO THE SAME CONCLUSION WHEN WE ANALYZED THE $B_1$ 95% CONFIDENCE INTERVAL!
+
+
+

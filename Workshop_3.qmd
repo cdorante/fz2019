@@ -1,0 +1,228 @@
+---
+title: "Workshop 3, Econometric Models"
+date: February 26, 2024
+author: "Alberto Dorantes"
+
+abstract: "This is an INDIVIDUAL workshop. In this workshop we learn about the Central Limit Theorem, the introduction to Hypothesis testing and Simple Linear Regression models." 
+
+format: 
+  html:
+    toc: true
+    toc-title: Content    
+    toc-location: left
+    toc-float: true
+    theme: united
+    highlight-style: zenburn
+    number-sections: true
+    fontsize: 0.9em
+    html-math-method: katex
+    
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+---
+
+```{r global_options}
+#| include: false 
+#| warning: false
+#| message: false
+#| fig-width: 12
+#| fig-height: 8
+
+#knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+#                      warning=FALSE, message=FALSE)
+```
+
+# Q Estimating the CAPM model for a stock
+
+# The CAPM model
+
+The Capital Asset Pricing Model states that the expected return of a stock is given by the risk-free rate plus its beta coefficient multiplied by the market premium return. In mathematical terms:
+
+$$ E[R_i] = R_f + β_1(R_M − R_f ) $$
+
+We can express the same equation as:
+
+$$ (E[R_i] − R_f ) = β_1(R_M − R_f ) $$
+
+Then, we are saying that the expected value of the *premium return* of a stock is equal to the *premium market return* multiplied by its market beta coefficient. You can estimate the beta coefficient of the CAPM using a regression model and using continuously compounded returns instead of simple returns. However, you must include the intercept b0 in the regression equation:
+
+
+$$ (r_i − r_f ) = β_0 + β_1(r_M − r_f ) + ε $$
+
+Where ε ∼ N(0, $σ_ε$); the error is a random shock with an expected mean=0 and a specific standard deviation or volatility. This error represents the result of all factors that influence stock returns, and cannot be explained by the model (by the market).
+
+In the market model, the dependent variable was the stock return and the independent variable was the market return. Unlike the market model, here the dependent variable is the difference between the stock return minus the risk-free rate (the stock premium return), and the independent variable is the premium return, which is equal to the market return minus the risk-free rate. Let's run this model in r with a couple of stocks.
+
+# Data collection
+
+We load the quantmod package (remember to install it in Google Colab)
+
+```{r, message=FALSE, warning=FALSE}
+
+# load package quantmod
+library(quantmod)
+
+```
+
+
+## Download stock data
+
+Download monthly stock data for Apple, Tesla and the S&P500 from 2019 to Feb 23, 2024 from Yahoo Finance using the getSymbols function and obtain continuously compounded returns for each. 
+
+```{r, message=FALSE, warning=FALSE}
+getSymbols(c("^GSPC", "AAPL", "TSLA"), from="2019-01-01", 
+           to="2024-02-23", periodicity="monthly", src="yahoo")
+# I join the 3 price datasets:
+prices = merge(GSPC, AAPL, TSLA) 
+# I get only the adjusted prices:
+adjprices = Ad(prices)
+# I calculate continuously compounded returns:
+returns = diff(log(adjprices))
+# I drop the first row since they have NA values:
+returns = na.omit(returns)
+# I rename the column names of the returns dataset
+colnames(returns) = c("GSPC","AAPL", "TSLA")
+
+```
+
+
+## Download risk-free data from the FED
+
+Download the risk-free monthly rate for the US (6-month treasury bills), which is the TB6MS ticker: 
+
+```{r, message=FALSE, warning=FALSE}
+getSymbols("TB3MS", src = "FRED")
+```
+
+
+The TB3MS serie is given in percentage and in annual rate. I divide it by 100 
+and 12 to get a monthly simple rate since I am using monthly rates for the  stocks:
+
+```{r}
+rfrate<-TB3MS/100/12
+```
+
+Now I get the continuously compounded return from the simple return:
+
+```{r}
+rfrate <- log(1+rfrate)
+```
+I used the formula to get cc reteurns from simple returns, which is applying the natural log of the growth factor (1+rfrate)
+
+## Subsetting the risk-free dataset
+
+Unfortunately, when getSymbols brings data from the FED, it brings all historical values of the series, even though the end date is specified. 
+
+Then, I do a *sub-setting* of the risk-free rate dataset to keep only those months that are equal to the months I brought for the stocks:
+
+```{r}
+rfrate <- rfrate["2019-02-01/2024-02-01"]
+```
+
+## Estimating the premium returns
+
+Now you have to generate new variables (columns) for the *premium returns* for the stocks and the S&P 500. The premium returns will be equal to the returns minus the risk-free rat: 
+
+```{r}
+TSLA_Premr = returns$TSLA - rfrate 
+GSPC_Premr = returns$GSPC - rfrate
+
+```
+
+# Q Visualize the relationship
+
+4. Do a scatter plot putting the S&P500 premium returns as the independent variable (X) and Tesla premium return as the dependent variable (Y). We also add a line that better represents the relationship between the stock returns and the market returns:
+
+```{r}
+plot.default(x=GSPC_Premr, y=TSLA_Premr)
+abline(lm(TSLA_Premr ~ GSPC_Premr),col='blue')
+
+```
+
+
+Sometimes graphs can be deceiving. In this case, the range of X axis and Y axis are different, so it is better to do a graph where we can make both X and Y ranges with equal distance. We also add a line that better represents the relationship between the stock returns and the market returns. Type:
+
+
+```{r}
+plot.default(x=GSPC_Premr, y=TSLA_Premr, ylim=c(-0.5,0.5),xlim=c(-0.7,0.7))
+abline(lm(TSLA_Premr ~ GSPC_Premr),col='blue')
+
+```
+
+**WHAT DOES THE PLOT TELL YOU? BRIEFLY EXPLAIN**
+
+
+# Q Estimating the CAPM model for a stock
+
+Use the premium returns to run the CAPM regression model for each stock.
+
+We start with Tesla:
+
+```{r}
+
+Tesla_CAPM <-lm(TSLA_Premr ~ GSPC_Premr, na.action=na.omit)
+
+# Note that I added the parameter na.action=na.omit to validate in case some
+# of the return series have NA values. NA values will be omitted
+# I apply the function summary to the Tesla_CAPM object to get the coefficients and the
+# standard errors. I assign the result in the Tesla_s object
+Tesla_s <-summary(Tesla_CAPM)
+# The summary function, shows the results for the B1 and B0 coefficients, their
+# residuals, t and p values.
+# The first line shows the B0 coefficients
+# The second, the coefficients for B1
+
+Tesla_s
+```
+
+To do a rough estimate of the 95% confidence interval for B0:
+
+```{r}
+minB0 <- Tesla_s$coefficients[1,1]  - (2* Tesla_s$coefficients[1,2] )
+maxBO <-  Tesla_s$coefficients[1,1]  + (2* Tesla_s$coefficients[1,2] )
+
+cat("The approx. B0 confidence interval goes from", minB0, "to", maxBO)
+
+```
+
+To estimate the 95% confidence interval for B1:
+
+```{r}
+minB1 <- Tesla_s$coefficients[2,1]  - (2* Tesla_s$coefficients[2,2] )
+maxB1 <-  Tesla_s$coefficients[2,1]  + (2* Tesla_s$coefficients[2,2] )
+
+cat("The approx. B1 confidence interval goes from", minB1, "to", maxB1)
+```
+
+Follow the same procedure to get Apple's CAPM and respond after you run your CAPM regression model for both stocks:
+
+
+**(a) INTERPRET THE RESULTS OF THE COEFFICIENTS (b0 and b1), THEIR STANDARD ERRORS, P-VALUES AND 95% CONFIDENCE INTERVALS.**
+
+**(b) DO A QUICK RESEARCH ABOUT THE EFFICIENT MARKET HYPOTHESIS. BRIEFLY DESCRIBE WHAT THIS HYPOTHESIS SAYS.**
+
+**(c) ACCORDING TO THE EFFICIENT MARKET HYPOTHESIS, WHAT IS THE EXPECTED VALUE OF b0 in the CAPM REGRESSION MODEL?**
+
+**(d) ACCORDING TO YOUR RESULTS, IS TESLA SIGNIFICANTLY RISKIER THAN THE MARKET ? WHAT IS THE t-test YOU NEED TO DO TO RESPOND THIS QUESTION? Do the test and provide your interpretation. (Hint: Here you have to change the null hypothesis for b1: H0: b1=1; Ha=b1<>1)**
+
+# READING
+
+Read carefully: Basics of Linear Regression Models. 
+
+
+# Quiz 3 and W3 submission
+
+Go to Canvas and respond Quiz 3 about Basics of Return and Basics of Descriptive Statistics. You will be able to try this quiz up to 3 times. Questions in this Quiz are related to concepts of the readings related to this Workshop. The grade of this Workshop will be the following:
+
+-   Complete (100%): If you submit an ORIGINAL and COMPLETE HTML file with all the activities, with your notes, and with your OWN RESPONSES to questions
+
+-   Incomplete (75%): If you submit an ORIGINAL HTML file with ALL the activities but you did NOT RESPOND to the questions and/or you did not do all activities and respond to some of the questions.
+
+-   Very Incomplete (10%-70%): If you complete from 10% to 75% of the workshop or you completed more but parts of your work is a copy-paste from other workshops.
+
+-   Not submitted (0%)
+
+
+
